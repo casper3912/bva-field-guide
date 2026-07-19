@@ -1,0 +1,1554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Boundary Value Analysis — A Field Guide for Java, Mobile &amp; Angular Teams</title>
+<meta name="description" content="A practical, self-contained guide to boundary value analysis: the technique, its relationship to cyclomatic complexity, and how to apply it in Java, mobile, and Angular development.">
+<style>
+  :root{
+    --paper:#F3F5F7;
+    --panel:#FFFFFF;
+    --ink:#17232E;
+    --muted:#5A6B7A;
+    --blueprint:#2B5DA8;
+    --blueprint-dk:#1E4278;
+    --valid:#12805C;
+    --valid-bg:#E5F3EE;
+    --invalid:#B4372A;
+    --invalid-bg:#F9EAE7;
+    --boundary-bg:#E8EFF9;
+    --grid:rgba(43,93,168,0.09);
+    --rule:#D8DEE5;
+    --code-bg:#1B2733;
+    --code-ink:#DCE6F0;
+    --serif: Charter, "Bitstream Charter", "Iowan Old Style", Georgia, "Times New Roman", serif;
+    --sans: "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, system-ui, sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, "Liberation Mono", Menlo, monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth;scroll-padding-top:4.5rem}
+  @media (prefers-reduced-motion: reduce){
+    html{scroll-behavior:auto}
+    *,*::before,*::after{animation:none!important;transition:none!important}
+  }
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--serif);
+    font-size:17px;
+    line-height:1.65;
+  }
+  a{color:var(--blueprint)}
+  a:hover{color:var(--blueprint-dk)}
+  a:focus-visible, button:focus-visible, input:focus-visible{
+    outline:3px solid var(--blueprint);outline-offset:2px;border-radius:2px;
+  }
+
+  /* ---------- Top navigation ---------- */
+  nav{
+    position:sticky;top:0;z-index:50;
+    background:rgba(243,245,247,0.94);
+    backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--rule);
+  }
+  .nav-inner{
+    max-width:1060px;margin:0 auto;padding:.65rem 1.25rem;
+    display:flex;align-items:center;gap:1.25rem;flex-wrap:wrap;
+    font-family:var(--sans);
+  }
+  .nav-mark{
+    font-family:var(--mono);font-size:.8rem;font-weight:700;
+    letter-spacing:.08em;color:var(--blueprint-dk);white-space:nowrap;
+  }
+  .nav-mark .b{color:var(--invalid)}
+  nav ul{display:flex;gap:1rem;list-style:none;flex-wrap:wrap}
+  nav li a{
+    text-decoration:none;font-size:.82rem;font-weight:600;
+    letter-spacing:.02em;color:var(--muted);padding:.25rem 0;
+  }
+  nav li a:hover{color:var(--blueprint-dk)}
+
+  /* ---------- Hero ---------- */
+  header{
+    background:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size:28px 28px;
+    background-color:#EDF1F5;
+    border-bottom:1px solid var(--rule);
+    padding:4rem 1.25rem 3.25rem;
+  }
+  .hero-inner{max-width:1060px;margin:0 auto}
+  .eyebrow{
+    font-family:var(--mono);font-size:.75rem;font-weight:700;
+    letter-spacing:.18em;text-transform:uppercase;color:var(--blueprint);
+    margin-bottom:.9rem;
+  }
+  h1{
+    font-family:var(--sans);font-weight:800;
+    font-size:clamp(2.1rem, 5.2vw, 3.4rem);
+    line-height:1.06;letter-spacing:-0.015em;max-width:21ch;
+  }
+  h1 .edge{color:var(--blueprint)}
+  .hero-sub{
+    margin-top:1.15rem;max-width:62ch;font-size:1.06rem;color:#33424F;
+  }
+  .hero-meta{
+    margin-top:1.4rem;font-family:var(--mono);font-size:.74rem;
+    color:var(--muted);letter-spacing:.05em;
+  }
+
+  /* ---------- Layout ---------- */
+  main{max-width:1060px;margin:0 auto;padding:0 1.25rem}
+  section{padding:3.25rem 0 1rem;border-bottom:1px solid var(--rule)}
+  section:last-of-type{border-bottom:none}
+  .sec-eyebrow{
+    font-family:var(--mono);font-size:.72rem;font-weight:700;
+    letter-spacing:.2em;text-transform:uppercase;color:var(--blueprint);
+    margin-bottom:.55rem;
+  }
+  h2{
+    font-family:var(--sans);font-weight:800;font-size:clamp(1.5rem,3vw,2.05rem);
+    letter-spacing:-0.01em;line-height:1.15;margin-bottom:1.1rem;max-width:30ch;
+  }
+  h3{
+    font-family:var(--sans);font-weight:700;font-size:1.14rem;
+    margin:2rem 0 .6rem;
+  }
+  p{max-width:68ch;margin-bottom:1rem}
+  ul.plain, ol.plain{max-width:66ch;margin:0 0 1rem 1.35rem}
+  ul.plain li, ol.plain li{margin-bottom:.55rem}
+  strong{font-weight:700}
+  em{font-style:italic}
+  .callout{
+    max-width:70ch;background:var(--boundary-bg);
+    border-left:4px solid var(--blueprint);
+    padding:.9rem 1.1rem;margin:1.25rem 0;border-radius:0 6px 6px 0;
+    font-size:.98rem;
+  }
+  .callout.warn{background:var(--invalid-bg);border-left-color:var(--invalid)}
+  .callout.good{background:var(--valid-bg);border-left-color:var(--valid)}
+  code{
+    font-family:var(--mono);font-size:.86em;
+    background:#E6EBF0;padding:.1em .35em;border-radius:4px;
+  }
+  pre{
+    background:var(--code-bg);color:var(--code-ink);
+    font-family:var(--mono);font-size:.82rem;line-height:1.55;
+    padding:1.1rem 1.25rem;border-radius:8px;
+    overflow-x:auto;margin:1.15rem 0 1.4rem;max-width:860px;
+    tab-size:2;
+  }
+  pre code{background:none;padding:0;color:inherit;font-size:inherit}
+  .cm{color:#7E93A8}          /* comment */
+  .kw{color:#7FB5FF}          /* keyword */
+  .st{color:#9FD8B4}          /* string */
+  .an{color:#F2C879}          /* annotation / decorator */
+  .nm{color:#E8B4E4}          /* number */
+
+  table{
+    border-collapse:collapse;width:100%;max-width:860px;
+    font-size:.9rem;margin:1.1rem 0 1.5rem;background:var(--panel);
+    font-family:var(--sans);
+  }
+  th{
+    font-family:var(--mono);font-size:.72rem;letter-spacing:.08em;
+    text-transform:uppercase;text-align:left;color:var(--muted);
+    border-bottom:2px solid var(--ink);padding:.55rem .7rem;
+  }
+  td{border-bottom:1px solid var(--rule);padding:.55rem .7rem;vertical-align:top}
+  td.mono{font-family:var(--mono);font-size:.82rem;white-space:nowrap}
+  .tag{
+    display:inline-block;font-family:var(--mono);font-size:.7rem;font-weight:700;
+    padding:.14em .5em;border-radius:99px;letter-spacing:.04em;
+  }
+  .tag.valid{background:var(--valid-bg);color:var(--valid)}
+  .tag.invalid{background:var(--invalid-bg);color:var(--invalid)}
+  .tag.boundary{background:var(--boundary-bg);color:var(--blueprint-dk)}
+
+  /* ---------- Boundary Explorer ---------- */
+  .explorer{
+    background:var(--panel);border:1px solid var(--rule);border-radius:12px;
+    padding:1.5rem 1.5rem 1.75rem;margin:2rem 0 1rem;
+    box-shadow:0 2px 10px rgba(23,35,46,0.05);
+  }
+  .explorer-head{
+    display:flex;align-items:baseline;justify-content:space-between;
+    gap:1rem;flex-wrap:wrap;margin-bottom:1rem;
+  }
+  .explorer-title{
+    font-family:var(--sans);font-weight:800;font-size:1.05rem;letter-spacing:-.01em;
+  }
+  .explorer-note{font-family:var(--mono);font-size:.7rem;color:var(--muted);letter-spacing:.06em}
+  .controls{
+    display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:1.1rem;
+    font-family:var(--sans);
+  }
+  .controls label{
+    display:flex;flex-direction:column;gap:.3rem;
+    font-family:var(--mono);font-size:.7rem;font-weight:700;
+    letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+  }
+  .controls input{
+    font-family:var(--mono);font-size:1rem;padding:.45rem .6rem;
+    border:1.5px solid var(--rule);border-radius:6px;width:7.5rem;
+    background:var(--paper);color:var(--ink);
+  }
+  .controls input:focus{border-color:var(--blueprint)}
+  .err{font-family:var(--sans);font-size:.85rem;color:var(--invalid);min-height:1.2em;margin-bottom:.4rem}
+  #numline{width:100%;height:auto;display:block}
+  .legend{
+    display:flex;gap:1.25rem;flex-wrap:wrap;margin-top:.75rem;
+    font-family:var(--sans);font-size:.8rem;color:var(--muted);
+  }
+  .legend span::before{
+    content:"";display:inline-block;width:.7em;height:.7em;border-radius:50%;
+    margin-right:.4em;vertical-align:-1%;
+  }
+  .legend .l-valid::before{background:var(--valid)}
+  .legend .l-invalid::before{background:var(--invalid)}
+  .legend .l-boundary::before{background:var(--blueprint)}
+  .legend .l-amber::before{background:#C77D0A}
+  .mono-title{font-family:var(--mono);font-size:.92em;font-weight:700}
+  #bva-table-wrap{margin-top:.5rem}
+
+  /* ---------- Type ladder & overflow wheel ---------- */
+  .controls select{
+    font-family:var(--mono);font-size:1rem;padding:.45rem .6rem;
+    border:1.5px solid var(--rule);border-radius:6px;
+    background:var(--paper);color:var(--ink);
+  }
+  .controls select:focus{border-color:var(--blueprint)}
+  .presets{display:flex;gap:.5rem;flex-wrap:wrap;margin:0 0 1rem}
+  .presets button{
+    font-family:var(--mono);font-size:.72rem;font-weight:700;letter-spacing:.05em;
+    padding:.4rem .75rem;border:1.5px solid var(--blueprint);
+    background:var(--boundary-bg);color:var(--blueprint-dk);
+    border-radius:99px;cursor:pointer;
+  }
+  .presets button:hover{background:var(--blueprint);color:#FFFFFF}
+  #wheel-wrap{
+    display:grid;grid-template-columns:minmax(250px,330px) 1fr;
+    gap:1.5rem;align-items:center;
+  }
+  #wheel-svg{width:100%;height:auto;display:block}
+  .readout{font-family:var(--mono);font-size:.87rem;line-height:2.05;overflow-wrap:anywhere}
+  .readout .lbl{color:var(--muted);font-size:.72rem;letter-spacing:.08em}
+  .badge{
+    display:inline-block;font-family:var(--mono);font-size:.7rem;font-weight:700;
+    padding:.2em .65em;border-radius:99px;letter-spacing:.06em;vertical-align:8%;
+  }
+  .badge.ok{background:var(--valid-bg);color:var(--valid)}
+  .badge.wrap{background:var(--invalid-bg);color:var(--invalid)}
+  @media (max-width:700px){#wheel-wrap{grid-template-columns:1fr}}
+
+  /* ---------- CFG figure ---------- */
+  figure{margin:1.5rem 0 1.75rem;max-width:860px}
+  figure svg{width:100%;height:auto;display:block;background:var(--panel);
+    border:1px solid var(--rule);border-radius:10px}
+  figcaption{
+    font-family:var(--sans);font-size:.82rem;color:var(--muted);
+    margin-top:.6rem;max-width:68ch;
+  }
+
+  /* ---------- Resources ---------- */
+  .res-group{margin-bottom:1.75rem}
+  .res-group h3{margin-top:1.25rem}
+  .res-list{list-style:none;max-width:860px}
+  .res-list li{
+    border-bottom:1px solid var(--rule);padding:.7rem 0;
+    font-family:var(--sans);font-size:.92rem;
+  }
+  .res-list a{font-weight:600;text-decoration:none}
+  .res-list a:hover{text-decoration:underline}
+  .res-desc{color:var(--muted);font-size:.85rem;display:block;margin-top:.15rem}
+
+  footer{
+    border-top:1px solid var(--rule);margin-top:3rem;
+    padding:2rem 1.25rem 3rem;text-align:center;
+    font-family:var(--mono);font-size:.72rem;color:var(--muted);letter-spacing:.06em;
+  }
+
+  @media (max-width:640px){
+    body{font-size:16px}
+    section{padding-top:2.5rem}
+    .controls input{width:100%}
+    .controls label{width:46%}
+    pre{font-size:.76rem;padding:.9rem 1rem}
+  }
+  @media print{
+    nav{position:static}
+    pre{white-space:pre-wrap;word-break:break-word}
+  }
+</style>
+</head>
+<body>
+
+<nav aria-label="Sections">
+  <div class="nav-inner">
+    <span class="nav-mark">[min−1 · <span class="b">min</span> · min+1]</span>
+    <ul>
+      <li><a href="#fundamentals">Fundamentals</a></li>
+      <li><a href="#complexity">Cyclomatic Complexity</a></li>
+      <li><a href="#types">Type Boundaries</a></li>
+      <li><a href="#java">Java</a></li>
+      <li><a href="#mobile">Mobile</a></li>
+      <li><a href="#angular">Angular</a></li>
+      <li><a href="#ai">AI Tools</a></li>
+      <li><a href="#resources">Resources</a></li>
+    </ul>
+  </div>
+</nav>
+
+<header>
+  <div class="hero-inner">
+    <div class="eyebrow">A field guide for working engineers</div>
+    <h1>Bugs live at the <span class="edge">edges</span>.<br>Boundary value analysis finds them there.</h1>
+    <p class="hero-sub">
+      Most defects don't hide in the middle of an input range — they hide at its borders,
+      where a <code>&lt;</code> should have been a <code>&lt;=</code> and an off-by-one waits for
+      production traffic. This guide covers the technique itself, why cyclomatic complexity tells you
+      how much boundary testing a method actually needs, and how to put both to work in
+      Java, mobile, and Angular codebases.
+    </p>
+    <p class="hero-meta">SELF-CONTAINED FILE · NO EXTERNAL DEPENDENCIES · SAFE TO FORWARD</p>
+  </div>
+</header>
+
+<main>
+
+<!-- ============ SECTION 1: FUNDAMENTALS ============ -->
+<section id="fundamentals">
+  <div class="sec-eyebrow">§ Foundations</div>
+  <h2>What boundary value analysis is — and why it works</h2>
+
+  <p>
+    <strong>Boundary value analysis (BVA)</strong> is a black-box test design technique that selects
+    test inputs at the <em>edges</em> of an input domain rather than sampling from its interior. If a
+    field accepts ages 18–65, BVA says the interesting values are not 40 or 52 — they are 17, 18, 19,
+    and 64, 65, 66. The technique rests on a well-worn empirical observation: implementations fail at
+    partition edges far more often than inside them, because that's where developers write comparison
+    logic — and comparison logic is where <code>&gt;</code> vs. <code>&gt;=</code> mistakes,
+    off-by-one errors, and mishandled limits live.
+  </p>
+
+  <h3>The partner technique: equivalence partitioning</h3>
+  <p>
+    BVA is almost always taught and applied alongside <strong>equivalence partitioning (EP)</strong>.
+    EP divides the input space into classes the system should treat identically — for an 18–65 age
+    gate, that's three partitions: <em>below range</em> (invalid), <em>in range</em> (valid), and
+    <em>above range</em> (invalid). Any single value from a partition stands in for the whole class.
+    EP tells you <em>what</em> to test; BVA tells you <em>exactly which values</em> to test — the
+    ones sitting on each partition's border, where a misplaced boundary in the code would flip the
+    behavior of the entire class.
+  </p>
+
+  <h3>Two-value vs. three-value BVA</h3>
+  <p>
+    The ISTQB syllabus distinguishes two flavors. <strong>Two-value BVA</strong> tests each boundary
+    and its nearest neighbor across the border (e.g., 17 and 18 for a minimum of 18).
+    <strong>Three-value BVA</strong> adds the neighbor <em>inside</em> the border as well (17, 18, 19),
+    buying extra confidence for higher-risk domains — financial, medical, safety-critical — where you
+    want proof the behavior is correct <em>at</em> the boundary and in its immediate vicinity on both
+    sides.
+  </p>
+
+  <div class="explorer" id="explorer">
+    <div class="explorer-head">
+      <div class="explorer-title">Boundary Explorer</div>
+      <div class="explorer-note">3-VALUE BVA · EDIT MIN/MAX AND WATCH THE TEST SET MOVE</div>
+    </div>
+    <div class="controls">
+      <label>Min (inclusive)
+        <input type="number" id="bva-min" value="18" step="1" aria-label="Minimum boundary">
+      </label>
+      <label>Max (inclusive)
+        <input type="number" id="bva-max" value="65" step="1" aria-label="Maximum boundary">
+      </label>
+    </div>
+    <div class="err" id="bva-err" role="alert" aria-live="polite"></div>
+    <svg id="numline" viewBox="0 0 900 150" role="img" aria-label="Number line showing boundary value test points"></svg>
+    <div class="legend">
+      <span class="l-invalid">Invalid partition</span>
+      <span class="l-valid">Valid partition</span>
+      <span class="l-boundary">Boundary (on the line)</span>
+    </div>
+    <div id="bva-table-wrap"></div>
+  </div>
+
+  <h3>Where boundaries hide beyond numeric ranges</h3>
+  <p>
+    Numbers are the textbook case, but any <em>ordered</em> domain has boundaries worth probing:
+  </p>
+  <ul class="plain">
+    <li><strong>String lengths</strong> — a username of 3–20 characters means testing 2, 3, 20, and 21 characters, plus empty and null.</li>
+    <li><strong>Collections</strong> — empty list, single element, exactly-at-capacity, one-over-capacity; first and last index of an array.</li>
+    <li><strong>Dates and time</strong> — midnight, end of month, Feb 29, daylight-saving transitions, epoch rollovers, session-timeout instants.</li>
+    <li><strong>Data types</strong> — <code>Integer.MAX_VALUE</code>, overflow points, precision limits of floating point, maximum payload sizes.</li>
+    <li><strong>State and quota</strong> — zero balance, exactly-sufficient funds, last remaining seat, rate-limit thresholds.</li>
+  </ul>
+
+  <div class="callout warn">
+    <strong>The classic failure this catches:</strong> a requirement says "orders of $100 or more
+    ship free." The developer writes <code>total &gt; 100</code>. Every mid-range test passes —
+    $50 pays shipping, $150 ships free. Only the boundary test at exactly $100.00 exposes that
+    the single most talked-about value in the requirement is handled wrong.
+  </div>
+
+  <h3>Why teams adopt it: the economics</h3>
+  <p>
+    Exhaustive input testing is impossible; random sampling is inefficient. BVA concentrates a small,
+    systematic set of test cases precisely where defect density is empirically highest. For a single
+    bounded input, three-value BVA needs just seven values (min−1, min, min+1, a nominal interior
+    value, max−1, max, max+1) to cover every transition a comparison operator can get wrong. That's
+    the whole pitch: <em>maximum defect-detection probability per test case written</em>.
+  </p>
+</section>
+
+<!-- ============ SECTION 2: CYCLOMATIC COMPLEXITY ============ -->
+<section id="complexity">
+  <div class="sec-eyebrow">§ The Metric</div>
+  <h2>The cyclomatic complexity connection</h2>
+
+  <p>
+    <strong>Cyclomatic complexity</strong> — McCabe's <em>V(G)</em> — is a white-box metric: the
+    number of linearly independent paths through a piece of code's control-flow graph. Computed as
+    <code>V(G) = E − N + 2</code> (edges minus nodes plus two) or, more practically, as
+    <em>decision points + 1</em>, it sets the <strong>minimum number of test cases required to
+    exercise every independent path at least once</strong> — the foundation of basis path testing.
+  </p>
+
+  <p>
+    At first glance the two techniques live on opposite sides of the wall: BVA is black-box
+    (designed from the specification), cyclomatic complexity is white-box (measured from the code).
+    The connection is that <strong>they count the same things from different directions</strong>.
+  </p>
+
+  <h3>Every boundary is a decision; every decision is a boundary</h3>
+  <p>
+    Consider a range check: <code>if (age &gt;= 18 &amp;&amp; age &lt;= 65)</code>. To the
+    complexity tool, the two comparisons are two decision points — with short-circuit evaluation
+    counted, this single line contributes +2 to V(G). To the BVA practitioner, those same two
+    comparisons are two boundaries, each demanding on-the-line and across-the-line test values.
+    The predicates that inflate a method's cyclomatic complexity are, in large part, the very
+    boundary conditions BVA targets. That gives you three practical bridges between the metric
+    and the technique:
+  </p>
+
+  <ol class="plain">
+    <li><strong>V(G) sizes your test suite.</strong> Complexity gives the floor for path coverage; BVA supplies the specific input values that push execution across each predicate in both directions. A method with V(G) = 6 and mostly range-check predicates will need roughly its complexity's worth of boundary-driven cases — and the BVA table practically writes the parameterized test for you.</li>
+    <li><strong>V(G) prioritizes where BVA effort goes.</strong> High-complexity modules are statistically the defect-prone ones. When time is limited, run your complexity report (SonarQube, PMD, Checkstyle) and aim rigorous three-value BVA at the methods scoring highest — that's risk-based testing with a number behind it.</li>
+    <li><strong>BVA exposes what coverage numbers hide.</strong> You can hit 100% branch coverage on <code>total &gt; 100</code> with $50 and $150 — and never learn that $100 itself misbehaves. Path coverage says <em>which roads were driven</em>; boundary values say <em>whether the road forks in the right place</em>. You need both.</li>
+  </ol>
+
+  <figure>
+    <svg viewBox="0 0 900 320" role="img" aria-label="Control-flow graph of a range validation function with cyclomatic complexity annotated">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#5A6B7A"/>
+        </marker>
+      </defs>
+      <!-- nodes -->
+      <g font-family="ui-monospace, SF Mono, Consolas, monospace" font-size="13">
+        <!-- N1 entry -->
+        <rect x="60" y="30" width="180" height="40" rx="8" fill="#E8EFF9" stroke="#2B5DA8" stroke-width="1.5"/>
+        <text x="150" y="55" text-anchor="middle" fill="#17232E">validate(age)</text>
+        <!-- N2 decision 1 -->
+        <path d="M 150 110 L 250 145 L 150 180 L 50 145 Z" fill="#FFFFFF" stroke="#2B5DA8" stroke-width="1.5"/>
+        <text x="150" y="150" text-anchor="middle" fill="#17232E">age &gt;= 18 ?</text>
+        <!-- N3 decision 2 -->
+        <path d="M 450 110 L 550 145 L 450 180 L 350 145 Z" fill="#FFFFFF" stroke="#2B5DA8" stroke-width="1.5"/>
+        <text x="450" y="150" text-anchor="middle" fill="#17232E">age &lt;= 65 ?</text>
+        <!-- N4 accept -->
+        <rect x="660" y="125" width="150" height="40" rx="8" fill="#E5F3EE" stroke="#12805C" stroke-width="1.5"/>
+        <text x="735" y="150" text-anchor="middle" fill="#12805C">accept</text>
+        <!-- N5 reject -->
+        <rect x="225" y="245" width="150" height="40" rx="8" fill="#F9EAE7" stroke="#B4372A" stroke-width="1.5"/>
+        <text x="300" y="270" text-anchor="middle" fill="#B4372A">reject</text>
+      </g>
+      <!-- edges -->
+      <g stroke="#5A6B7A" stroke-width="1.5" fill="none" marker-end="url(#arrow)">
+        <line x1="150" y1="70" x2="150" y2="106"/>
+        <line x1="250" y1="145" x2="346" y2="145"/>
+        <line x1="550" y1="145" x2="656" y2="145"/>
+        <line x1="150" y1="180" x2="245" y2="248"/>
+        <line x1="450" y1="180" x2="360" y2="248"/>
+      </g>
+      <g font-family="ui-monospace, SF Mono, Consolas, monospace" font-size="11.5" fill="#5A6B7A">
+        <text x="290" y="135">true</text>
+        <text x="590" y="135">true</text>
+        <text x="160" y="215">false → boundary at 18</text>
+        <text x="415" y="215" text-anchor="end">false → boundary at 65</text>
+      </g>
+      <g font-family="ui-monospace, SF Mono, Consolas, monospace" font-size="13" fill="#1E4278">
+        <text x="620" y="45" font-weight="bold">V(G) = decisions + 1 = 2 + 1 = 3</text>
+        <text x="620" y="68" fill="#5A6B7A" font-size="12">3 independent paths · 2 boundaries</text>
+        <text x="620" y="88" fill="#5A6B7A" font-size="12">→ BVA supplies 17,18,19 &amp; 64,65,66</text>
+      </g>
+    </svg>
+    <figcaption>
+      The same range check, seen both ways: the complexity tool counts two decision diamonds and
+      reports V(G) = 3; the tester sees two boundaries and derives the six edge values that exercise
+      every path <em>and</em> every operator direction. The metric and the technique are two views of
+      one structure.
+    </figcaption>
+  </figure>
+
+  <div class="callout">
+    <strong>Rule of thumb for code review:</strong> when a method's cyclomatic complexity crosses ~10,
+    it's not just "hard to read" — it has accumulated so many predicates (so many boundaries) that its
+    BVA test matrix has become combinatorially expensive. Refactoring for lower V(G) is
+    simultaneously refactoring for <em>testable boundaries</em>. Complexity thresholds and boundary
+    test effort rise and fall together.
+  </div>
+</section>
+
+<!-- ============ SECTION 2.5: JAVA TYPE BOUNDARIES ============ -->
+<section id="types">
+  <div class="sec-eyebrow">§ Java's Number Line</div>
+  <h2>Type boundaries: where the numbers themselves end</h2>
+
+  <p>
+    Everything so far treated boundaries as something the <em>specification</em> creates — an age
+    gate, a length limit. But in Java, every primitive numeric type imposes a second, silent set of
+    boundaries that exist before any business rule is written. An <code>int</code> is not "a
+    number"; it is exactly 2<sup>32</sup> numbers arranged in a fixed range, and arithmetic that
+    steps outside that range doesn't fail — it <strong>wraps around silently</strong>. That makes
+    even the simplest operation, <code>a + b</code>, a boundary-testing problem in its own right.
+  </p>
+
+  <figure>
+    <svg viewBox="0 0 900 360" role="img" aria-label="Ladder diagram of Java integral type ranges: byte, short, char, int, long">
+      <g font-family="ui-monospace, SF Mono, Consolas, monospace">
+        <!-- zero axis -->
+        <line x1="450" y1="26" x2="450" y2="316" stroke="#2B5DA8" stroke-width="1.5" stroke-dasharray="4 4"/>
+        <text x="450" y="18" text-anchor="middle" font-size="11" fill="#2B5DA8" font-weight="bold">0</text>
+        <text x="450" y="336" text-anchor="middle" font-size="10.5" fill="#5A6B7A">bar width ∝ bit count · each row uses its own value scale</text>
+
+        <!-- byte : 8 bits, width 90 -->
+        <rect x="405" y="42" width="90" height="26" rx="5" fill="#E5F3EE" stroke="#12805C" stroke-width="1.4"/>
+        <line x1="405" y1="38" x2="405" y2="72" stroke="#B4372A" stroke-width="2.5"/>
+        <line x1="495" y1="38" x2="495" y2="72" stroke="#B4372A" stroke-width="2.5"/>
+        <text x="450" y="59" text-anchor="middle" font-size="12" fill="#17232E" font-weight="bold">byte · 8</text>
+        <text x="397" y="59" text-anchor="end" font-size="11" fill="#B4372A">−128</text>
+        <text x="503" y="59" font-size="11" fill="#B4372A">127</text>
+
+        <!-- short : 16 bits, width 180 -->
+        <rect x="360" y="96" width="180" height="26" rx="5" fill="#E5F3EE" stroke="#12805C" stroke-width="1.4"/>
+        <line x1="360" y1="92" x2="360" y2="126" stroke="#B4372A" stroke-width="2.5"/>
+        <line x1="540" y1="92" x2="540" y2="126" stroke="#B4372A" stroke-width="2.5"/>
+        <text x="450" y="113" text-anchor="middle" font-size="12" fill="#17232E" font-weight="bold">short · 16</text>
+        <text x="352" y="113" text-anchor="end" font-size="11" fill="#B4372A">−32,768</text>
+        <text x="548" y="113" font-size="11" fill="#B4372A">32,767</text>
+
+        <!-- char : 16 bits, unsigned, width 180 starting at zero -->
+        <rect x="450" y="150" width="180" height="26" rx="5" fill="#E8EFF9" stroke="#2B5DA8" stroke-width="1.4"/>
+        <line x1="450" y1="146" x2="450" y2="180" stroke="#B4372A" stroke-width="2.5"/>
+        <line x1="630" y1="146" x2="630" y2="180" stroke="#B4372A" stroke-width="2.5"/>
+        <text x="540" y="167" text-anchor="middle" font-size="12" fill="#17232E" font-weight="bold">char · 16 (unsigned!)</text>
+        <text x="442" y="167" text-anchor="end" font-size="11" fill="#B4372A">0</text>
+        <text x="638" y="167" font-size="11" fill="#B4372A">65,535</text>
+
+        <!-- int : 32 bits, width 360 -->
+        <rect x="270" y="204" width="360" height="26" rx="5" fill="#E5F3EE" stroke="#12805C" stroke-width="1.4"/>
+        <line x1="270" y1="200" x2="270" y2="234" stroke="#B4372A" stroke-width="2.5"/>
+        <line x1="630" y1="200" x2="630" y2="234" stroke="#B4372A" stroke-width="2.5"/>
+        <text x="450" y="221" text-anchor="middle" font-size="12" fill="#17232E" font-weight="bold">int · 32</text>
+        <text x="262" y="221" text-anchor="end" font-size="11" fill="#B4372A">−2,147,483,648</text>
+        <text x="638" y="221" font-size="11" fill="#B4372A">2,147,483,647</text>
+
+        <!-- long : 64 bits, width 720 -->
+        <rect x="90" y="258" width="720" height="26" rx="5" fill="#E5F3EE" stroke="#12805C" stroke-width="1.4"/>
+        <line x1="90" y1="254" x2="90" y2="288" stroke="#B4372A" stroke-width="2.5"/>
+        <line x1="810" y1="254" x2="810" y2="288" stroke="#B4372A" stroke-width="2.5"/>
+        <text x="450" y="275" text-anchor="middle" font-size="12" fill="#17232E" font-weight="bold">long · 64 · ±9.22 × 10¹⁸</text>
+        <text x="96" y="250" font-size="10.5" fill="#B4372A">−2⁶³</text>
+        <text x="804" y="250" text-anchor="end" font-size="10.5" fill="#B4372A">2⁶³ − 1</text>
+      </g>
+    </svg>
+    <figcaption>
+      Java's integral types as nested ranges. Red end-caps mark each type's <em>overflow seam</em> —
+      the built-in boundary every arithmetic operation can collide with. Two asymmetries matter for
+      test design: <code>char</code> is the one unsigned type (its lower boundary is 0, and
+      <code>char c = 0; c−1</code> wraps to 65,535), and every signed type holds one more negative
+      value than positive — which is why <code>Math.abs(MIN_VALUE)</code> has no correct answer.
+    </figcaption>
+  </figure>
+
+  <h3>Addition alone has at least five boundary values</h3>
+  <p>
+    Take the plainest expression in the language: <code>int c = a + b;</code>. Before any
+    requirement exists, the type system has already defined the values where this expression's
+    behavior changes character. A credible boundary set for each operand:
+  </p>
+
+  <table>
+    <thead><tr><th>#</th><th>Value</th><th>Why it's a boundary for <code>a + b</code></th></tr></thead>
+    <tbody>
+      <tr><td class="mono">1</td><td class="mono">Integer.MIN_VALUE</td><td>The underflow seam. Adding any negative number wraps to a large <em>positive</em> result. Also the value with no representable negation.</td></tr>
+      <tr><td class="mono">2</td><td class="mono">MIN_VALUE + 1</td><td>The last value that survives negation; the smallest operand for which <code>a + (−1)</code> is still safe by one.</td></tr>
+      <tr><td class="mono">3</td><td class="mono">−1 / 0 / +1</td><td>The sign crossing. <code>−1 + 1</code> flips all 32 bits to reach 0 (full carry propagation); 0 is the additive identity; ±1 are the smallest steps that can push either seam.</td></tr>
+      <tr><td class="mono">4</td><td class="mono">MAX_VALUE − 1</td><td>The last operand for which <code>+ 1</code> stays in range — the "min−1" of the overflow condition itself.</td></tr>
+      <tr><td class="mono">5</td><td class="mono">Integer.MAX_VALUE</td><td>The overflow seam. <code>MAX_VALUE + 1</code> is not an error — it is <code>MIN_VALUE</code>, silently.</td></tr>
+    </tbody>
+  </table>
+
+  <p>
+    This is BVA applied to the <em>type</em> rather than the spec — and it composes with the earlier
+    sections: each of these values belongs in the same <code>@ValueSource</code> /
+    <code>@CsvSource</code> tables, and overflow guards (<code>if (a &gt; MAX − b)</code>…) are
+    decision points that raise V(G) exactly like any business boundary.
+  </p>
+
+  <div class="explorer" id="wheel">
+    <div class="explorer-head">
+      <div class="explorer-title">Overflow Wheel</div>
+      <div class="explorer-note">TWO'S COMPLEMENT IS A RING, NOT A LINE · WATCH MAX + 1 CROSS THE SEAM</div>
+    </div>
+    <div class="controls">
+      <label>Type
+        <select id="ow-type" aria-label="Integer type">
+          <option value="8" selected>byte (8-bit)</option>
+          <option value="16">short (16-bit)</option>
+          <option value="32">int (32-bit)</option>
+          <option value="64">long (64-bit)</option>
+        </select>
+      </label>
+      <label>a
+        <input type="text" id="ow-a" value="127" inputmode="numeric" aria-label="Operand a">
+      </label>
+      <label>b
+        <input type="text" id="ow-b" value="1" inputmode="numeric" aria-label="Operand b">
+      </label>
+    </div>
+    <div class="presets" aria-label="Preset scenarios">
+      <button type="button" data-preset="maxplus1">MAX + 1</button>
+      <button type="button" data-preset="minminus1">MIN − 1</button>
+      <button type="button" data-preset="maxmax">MAX + MAX</button>
+      <button type="button" data-preset="carry">−1 + 1</button>
+      <button type="button" data-preset="safe">nominal</button>
+    </div>
+    <div class="err" id="ow-err" role="alert" aria-live="polite"></div>
+    <div id="wheel-wrap">
+      <svg id="wheel-svg" viewBox="0 0 340 340" role="img" aria-label="Circular number wheel showing two's complement addition and wrap-around"></svg>
+      <div class="readout" id="ow-readout" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <h3>What the wheel means for your code</h3>
+
+<pre><code><span class="cm">// Silent by default: no exception, no warning — just the seam</span>
+<span class="kw">int</span> a = Integer.MAX_VALUE;
+System.out.println(a + <span class="nm">1</span>);              <span class="cm">// -2147483648</span>
+System.out.println(Math.abs(Integer.MIN_VALUE)); <span class="cm">// -2147483648 (still negative!)</span>
+
+<span class="cm">// Promotion hides the smaller seams: byte + byte is int arithmetic</span>
+<span class="kw">byte</span> b1 = <span class="nm">100</span>, b2 = <span class="nm">100</span>;
+<span class="kw">int</span> ok = b1 + b2;                        <span class="cm">// 200 — fine as int…</span>
+<span class="kw">byte</span> wrapped = (<span class="kw">byte</span>) (b1 + b2);         <span class="cm">// -56 — the seam returns at the cast</span>
+
+<span class="cm">// Opt in to failure at the boundary — then test for it</span>
+<span class="an">@ParameterizedTest</span>
+<span class="an">@CsvSource</span>({
+    <span class="st">"2147483646, 1, false"</span>,  <span class="cm">// MAX-1 + 1 → fits</span>
+    <span class="st">"2147483647, 1, true"</span>,   <span class="cm">// MAX   + 1 → must throw</span>
+    <span class="st">"-2147483648, -1, true"</span>  <span class="cm">// MIN   - 1 → must throw</span>
+})
+<span class="kw">void</span> addExactRespectsTheSeam(<span class="kw">int</span> a, <span class="kw">int</span> b, <span class="kw">boolean</span> overflows) {
+    <span class="kw">if</span> (overflows) {
+        assertThrows(ArithmeticException.<span class="kw">class</span>, () -&gt; Math.addExact(a, b));
+    } <span class="kw">else</span> {
+        assertEquals((<span class="kw">long</span>) a + b, Math.addExact(a, b));
+    }
+}</code></pre>
+
+  <div class="callout warn">
+    <strong>The practical rules:</strong> money and anything user-accumulating gets
+    <code>long</code>, <code>Math.addExact</code>/<code>multiplyExact</code>, or
+    <code>BigInteger</code>/<code>BigDecimal</code> — and every overflow guard you write is a new
+    predicate whose two sides your boundary table must exercise. If PIT's boundary mutator can turn
+    your <code>&gt;</code> into <code>&gt;=</code> unnoticed, the seam is unguarded.
+  </div>
+
+  <h3>Boxed types: <code>null</code> joins the boundary set</h3>
+  <p>
+    Swap <code>int</code> for <code>Integer</code> and the value set grows by one — and it's the
+    most dangerous member. A boxed type is a <em>reference</em>, so every boundary table gains a
+    <code>null</code> row; and because Java auto-unboxes inside arithmetic, <code>a + b</code> stops
+    being a pure computation and becomes an expression that can <strong>throw</strong>. The
+    <code>NullPointerException</code> doesn't come from the <code>+</code> — it comes from the
+    hidden <code>a.intValue()</code> the compiler inserts first. Which operands get unboxed depends
+    on the mix:
+  </p>
+
+  <table>
+    <thead><tr><th>Expression</th><th>What the compiler emits</th><th>Null outcome</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">int + int</td><td>Pure primitive addition</td><td><span class="tag valid">null impossible</span> — only the seam to test</td></tr>
+      <tr><td class="mono">Integer + int</td><td>Unboxes the <code>Integer</code>, adds as <code>int</code></td><td><span class="tag invalid">NPE</span> if the boxed operand is null</td></tr>
+      <tr><td class="mono">Integer + Integer</td><td>Unboxes <em>both</em>, adds as <code>int</code>, re-boxes if assigned to <code>Integer</code></td><td><span class="tag invalid">NPE</span> if <em>either</em> is null — two failure paths</td></tr>
+      <tr><td class="mono">flag ? 1 : boxed</td><td>Mixed branches promote the whole ternary to <code>int</code></td><td><span class="tag invalid">NPE</span> when the boxed branch is chosen while null — the classic ternary unboxing trap</td></tr>
+    </tbody>
+  </table>
+
+<pre><code><span class="cm">// The null boundary in action</span>
+Integer a = <span class="kw">null</span>;
+<span class="kw">int</span> b = <span class="nm">1</span>;
+<span class="kw">int</span> c = a + b;                <span class="cm">// NPE — thrown by the hidden a.intValue(), not by "+"</span>
+
+<span class="cm">// Boxing has its own boundary — and it sits exactly at the byte seam</span>
+Integer x = <span class="nm">127</span>, y = <span class="nm">127</span>;
+Integer p = <span class="nm">128</span>, q = <span class="nm">128</span>;
+System.out.println(x == y);   <span class="cm">// true  — Integer cache covers [-128, 127]</span>
+System.out.println(p == q);   <span class="cm">// false — one past the cache: identity != equality</span>
+
+<span class="cm">// JUnit 5 ships the null boundary as a first-class source:</span>
+<span class="cm">// a boxed parameter lets @NullSource extend the same value table</span>
+<span class="an">@ParameterizedTest</span>
+<span class="an">@NullSource</span>
+<span class="an">@ValueSource</span>(ints = {Integer.MIN_VALUE, -<span class="nm">1</span>, <span class="nm">0</span>, <span class="nm">1</span>, Integer.MAX_VALUE})
+<span class="kw">void</span> handlesFullBoundarySet(Integer amount) {
+    <span class="kw">if</span> (amount == <span class="kw">null</span>) {
+        assertThrows(NullPointerException.<span class="kw">class</span>, () -&gt; service.credit(amount));
+    } <span class="kw">else</span> {
+        assertDoesNotThrow(() -&gt; service.credit(amount));
+    }
+}</code></pre>
+
+  <div class="callout warn">
+    <strong>A boundary inside the boxing itself:</strong> the <code>Integer.valueOf</code> cache
+    spans −128 to 127 — the byte range. Code that compares boxed values with <code>==</code> works
+    perfectly in every test using small numbers and fails at 128. That's a three-value BVA target
+    (127, 128, and −128/−129) hiding in what looks like infrastructure.
+  </div>
+
+  <h3>Null's real cost: paths, then combinatorics</h3>
+  <p>
+    Each nullable operand contributes twice to test burden. First, <strong>paths</strong>: the
+    control-flow graph of <code>Integer + Integer</code> has an implicit exceptional edge per
+    unboxing, and the moment you guard defensively — <code>if (a == null || b == null)</code> —
+    you've added two decision points and raised V(G) by two. The white-box metric registers the
+    reference boundary exactly as it registers a range check. Second,
+    <strong>combinatorics</strong>: BVA per single operand is linear (seven values, or eight with
+    null), but operands <em>interact</em> in arithmetic, so the honest test matrix is the cross
+    product — and every nullable operand multiplies it by 8/7 while adding an entire failing
+    row and column:
+  </p>
+
+  <div class="explorer" id="matrix">
+    <div class="explorer-head">
+      <div class="explorer-title">Test Matrix — <span class="mono-title">a + b</span> over int boundary values</div>
+      <div class="explorer-note">TOGGLE BOXING AND WATCH NULL MULTIPLY THE TABLE</div>
+    </div>
+    <div class="controls">
+      <label>Operand type
+        <select id="mx-boxed" aria-label="Operand type">
+          <option value="0" selected>int (primitive)</option>
+          <option value="1">Integer (boxed)</option>
+        </select>
+      </label>
+      <label>Operands
+        <select id="mx-n" aria-label="Number of operands">
+          <option value="2" selected>2 (a + b)</option>
+          <option value="3">3 (a + b + c)</option>
+          <option value="4">4 (a + b + c + d)</option>
+        </select>
+      </label>
+    </div>
+    <div id="mx-counts" class="readout" aria-live="polite"></div>
+    <div id="mx-grid-note" class="explorer-note" style="margin:.6rem 0 .4rem"></div>
+    <svg id="mx-grid" viewBox="0 0 560 560" style="max-width:460px;width:100%;height:auto;display:block" role="img" aria-label="Grid of test combinations colored by outcome"></svg>
+    <div class="legend">
+      <span class="l-valid">In range</span>
+      <span class="l-amber">Overflow (wraps)</span>
+      <span class="l-invalid">NullPointerException</span>
+    </div>
+  </div>
+
+  <p>
+    The matrix makes the trade explicit. Two primitive operands: 49 combinations, all of them value
+    behavior. Two boxed operands: 64 — and 15 of them (23%) never reach your arithmetic at all,
+    failing at unboxing instead. At four boxed operands the full product is 4,096, of which over
+    40% are NPE paths. Nobody runs the full product, which is exactly the point — the explosion is
+    the argument for the standard mitigations:
+  </p>
+  <ul class="plain">
+    <li><strong>Kill null at the perimeter.</strong> <code>Objects.requireNonNull</code> at the API boundary (or Bean Validation <code>@NotNull</code>) converts every interior null path into one tested fail-fast edge. Establishing the non-null invariant early collapses the 8-value interior matrix back to 7 — the cheapest combinatorial win available.</li>
+    <li><strong>Keep arithmetic primitive.</strong> Unbox once at the entry point; do math in <code>int</code>/<code>long</code>. Boxed types are for optionality and collections, not for computation.</li>
+    <li><strong>Test interactions pairwise.</strong> A pairwise covering array needs on the order of v² cases (~64 here) to cover every two-operand value combination regardless of how many operands exist — sane coverage of the interaction space without the full cross product.</li>
+    <li><strong>Make tools referee.</strong> JSpecify/Checker-style <code>@Nullable</code> annotations plus IDE/SpotBugs analysis, and PIT's null-returning mutators, verify that the null row of your table is guarded by proof rather than by convention.</li>
+  </ul>
+
+  <h3>Floating point: boundaries that aren't even numbers</h3>
+  <p>
+    <code>float</code> and <code>double</code> trade the wrap-around seam for a different boundary
+    zoo — special values and precision cliffs that ordinary equality logic mishandles:
+  </p>
+
+  <table>
+    <thead><tr><th>Boundary value</th><th>The trap</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">Double.NaN</td><td><code>NaN != NaN</code> is <em>true</em> — any comparison-based validation silently passes or fails sideways. Test with <code>Double.isNaN</code>, never <code>==</code>.</td></tr>
+      <tr><td class="mono">±Infinity</td><td>Overflow doesn't wrap here — <code>Double.MAX_VALUE * 2</code> is <code>Infinity</code>, and it propagates through subsequent math without error.</td></tr>
+      <tr><td class="mono">-0.0</td><td><code>-0.0 == 0.0</code> is true, but <code>Double.compare(-0.0, 0.0)</code> is negative and <code>1/-0.0</code> is <code>-Infinity</code>. Sorting and Map keys behave differently than <code>==</code>.</td></tr>
+      <tr><td class="mono">Double.MIN_VALUE</td><td>Not the most negative double — it's the smallest <em>positive</em> one (≈4.9 × 10⁻³²⁴). The actual lower boundary is <code>-Double.MAX_VALUE</code>. A named-constant trap that BVA tables inherit if written from memory.</td></tr>
+      <tr><td class="mono">2⁵³ (9007199254740992)</td><td>The integer-precision cliff: above it, <code>d + 1.0 == d</code> can be true. Any double used as a counter or ID crosses a boundary here.</td></tr>
+      <tr><td class="mono">0.1 + 0.2</td><td>= 0.30000000000000004. Decimal fractions are themselves off-boundary in binary — compare with a delta (<code>assertEquals(expected, actual, 1e-9)</code>) or use <code>BigDecimal</code>.</td></tr>
+    </tbody>
+  </table>
+
+  <p>
+    A complete type-aware boundary table for a numeric input therefore has four layers: the
+    <em>spec</em> boundaries (18 and 65), the <em>storage</em> boundaries
+    (<code>MIN_VALUE</code>/<code>MAX_VALUE</code> and the seam), the <em>reference</em> boundary
+    (<code>null</code>, whenever a boxed type appears anywhere in the data path), and for floating
+    point the <em>representation</em> boundaries (NaN, infinities, −0.0, precision cliffs). The
+    seven-point tables from the Foundations section apply unchanged at each layer — only the values
+    differ.
+  </p>
+</section>
+
+<!-- ============ SECTION 3: JAVA ============ -->
+<section id="java">
+  <div class="sec-eyebrow">§ Application · Server Side</div>
+  <h2>BVA in Java: parameterized tests as boundary tables</h2>
+
+  <p>
+    JUnit 5's <code>@ParameterizedTest</code> is practically purpose-built for BVA: the boundary
+    table you derive on paper becomes, line for line, a <code>@CsvSource</code> block. Each row is
+    one boundary value plus its expected outcome; the framework runs the method once per row and
+    reports each as an individual test case. The test suite <em>is</em> the boundary analysis,
+    readable at a glance in a pull request.
+  </p>
+
+<pre><code><span class="cm">// The unit under test — V(G) = 3: two boundary predicates + 1</span>
+<span class="kw">public class</span> LoanEligibility {
+    <span class="kw">public boolean</span> isEligibleAge(<span class="kw">int</span> age) {
+        <span class="kw">return</span> age &gt;= <span class="nm">18</span> &amp;&amp; age &lt;= <span class="nm">65</span>;
+    }
+}
+
+<span class="cm">// Three-value BVA, one row per test point</span>
+<span class="kw">class</span> LoanEligibilityTest {
+
+    <span class="kw">private final</span> LoanEligibility subject = <span class="kw">new</span> LoanEligibility();
+
+    <span class="an">@ParameterizedTest</span>(name = <span class="st">"age {0} → eligible: {1} ({2})"</span>)
+    <span class="an">@CsvSource</span>({
+        <span class="cm">// value, expected, role</span>
+        <span class="st">"17, false, min-1"</span>,
+        <span class="st">"18, true,  min"</span>,
+        <span class="st">"19, true,  min+1"</span>,
+        <span class="st">"40, true,  nominal"</span>,
+        <span class="st">"64, true,  max-1"</span>,
+        <span class="st">"65, true,  max"</span>,
+        <span class="st">"66, false, max+1"</span>
+    })
+    <span class="kw">void</span> enforcesAgeBoundaries(<span class="kw">int</span> age, <span class="kw">boolean</span> expected, String role) {
+        assertEquals(expected, subject.isEligibleAge(age));
+    }
+
+    <span class="cm">// Type-level boundaries deserve their own rows</span>
+    <span class="an">@ParameterizedTest</span>
+    <span class="an">@ValueSource</span>(ints = {Integer.MIN_VALUE, -<span class="nm">1</span>, <span class="nm">0</span>, Integer.MAX_VALUE})
+    <span class="kw">void</span> rejectsExtremeValues(<span class="kw">int</span> age) {
+        assertFalse(subject.isEligibleAge(age));
+    }
+}</code></pre>
+
+  <h3>Making the complexity link operational</h3>
+  <ul class="plain">
+    <li><strong>Measure first.</strong> SonarQube, PMD (<code>CyclomaticComplexity</code> rule), and Checkstyle all report V(G) per method; IntelliJ IDEA shows it inline via plugins. Sort descending — that's your BVA priority list.</li>
+    <li><strong>Cover the paths, then the edges.</strong> JaCoCo branch coverage confirms both sides of every predicate ran; your <code>@CsvSource</code> rows confirm they flip at the <em>right values</em>. Different questions, both necessary.</li>
+    <li><strong>Let mutation testing referee.</strong> PIT's <code>CONDITIONALS_BOUNDARY</code> mutator rewrites <code>&gt;=</code> to <code>&gt;</code> and similar. If a mutant survives, your suite is missing a boundary value — mutation testing is automated proof of whether your BVA was real or decorative.</li>
+    <li><strong>Guard the enterprise seams.</strong> In layered Java systems, the same 18–65 rule often lives in Bean Validation (<code>@Min(18) @Max(65)</code>), service logic, and a database constraint. BVA each layer independently — boundary drift between layers is a classic integration defect.</li>
+  </ul>
+
+  <div class="callout good">
+    <strong>Team habit worth adopting:</strong> require the boundary role column
+    (<code>min-1</code>, <code>min</code>, <code>nominal</code>…) in every parameterized test's
+    display name. Reviewers can then verify completeness of the boundary set without reconstructing
+    the analysis — a missing <code>max+1</code> row is visible in the diff.
+  </div>
+</section>
+
+<!-- ============ SECTION 4: MOBILE ============ -->
+<section id="mobile">
+  <div class="sec-eyebrow">§ Application · Devices</div>
+  <h2>BVA in mobile: the device itself is a boundary</h2>
+
+  <p>
+    On mobile, BVA applies twice. The first application is familiar — input fields, form limits,
+    payload sizes — and runs through the same seven-point tables as anywhere else, executed with
+    Espresso (Android), XCUITest (iOS), or cross-platform tools like Appium and Maestro. The second
+    application is what makes mobile distinct: <strong>the runtime environment is itself a bundle of
+    bounded ranges</strong>, and each range has edges where apps break.
+  </p>
+
+  <h3>Environmental boundary classes</h3>
+  <table>
+    <thead><tr><th>Dimension</th><th>Boundary values worth testing</th></tr></thead>
+    <tbody>
+      <tr><td>Screen &amp; density</td><td>Smallest supported device, largest tablet, split-screen minimum width, fold/unfold transition, 200% font scale</td></tr>
+      <tr><td>Network</td><td>Full connectivity → flaky → airplane mode; the transition <em>during</em> a request; request timeout at exactly the limit</td></tr>
+      <tr><td>Battery &amp; resources</td><td>Low-power mode threshold, OS memory-pressure kill/restore, storage nearly full during a write</td></tr>
+      <tr><td>Time</td><td>Session expiring mid-action, midnight rollover, DST transition, timezone change mid-session</td></tr>
+      <tr><td>Interrupts</td><td>Incoming call at submit-tap, notification during payment, backgrounding at each step of a critical flow</td></tr>
+      <tr><td>Permissions</td><td>Granted → revoked while app is running; the first-launch zero-permission state</td></tr>
+      <tr><td>OS versions</td><td>Minimum supported API level and the newest release — the two edges of your support range</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Input boundaries in native UI tests</h3>
+
+<pre><code><span class="cm">// Android · Espresso + JUnit: username field spec'd at 3–20 chars</span>
+<span class="an">@RunWith</span>(AndroidJUnit4::<span class="kw">class</span>)
+<span class="kw">class</span> UsernameBoundaryTest {
+
+    <span class="an">@Test</span> <span class="kw">fun</span> rejectsTwoChars()      = assertUsername(<span class="st">"ab"</span>,        valid = <span class="kw">false</span>) <span class="cm">// min-1</span>
+    <span class="an">@Test</span> <span class="kw">fun</span> acceptsThreeChars()    = assertUsername(<span class="st">"abc"</span>,       valid = <span class="kw">true</span>)  <span class="cm">// min</span>
+    <span class="an">@Test</span> <span class="kw">fun</span> acceptsTwentyChars()   = assertUsername(<span class="st">"a"</span>.repeat(<span class="nm">20</span>), valid = <span class="kw">true</span>)  <span class="cm">// max</span>
+    <span class="an">@Test</span> <span class="kw">fun</span> rejectsTwentyOne()     = assertUsername(<span class="st">"a"</span>.repeat(<span class="nm">21</span>), valid = <span class="kw">false</span>) <span class="cm">// max+1</span>
+
+    <span class="kw">private fun</span> assertUsername(input: String, valid: Boolean) {
+        onView(withId(R.id.username)).perform(replaceText(input), closeSoftKeyboard())
+        onView(withId(R.id.submit)).perform(click())
+        onView(withId(R.id.username_error))
+            .check(<span class="kw">if</span> (valid) matches(not(isDisplayed())) <span class="kw">else</span> matches(isDisplayed()))
+    }
+}</code></pre>
+
+<pre><code><span class="cm">// iOS · XCUITest: same boundary table, Swift side</span>
+<span class="kw">func</span> testUsernameBoundaries() {
+    <span class="kw">let</span> cases: [(input: String, valid: Bool)] = [
+        (String(repeating: <span class="st">"a"</span>, count: <span class="nm">2</span>),  <span class="kw">false</span>), <span class="cm">// min-1</span>
+        (String(repeating: <span class="st">"a"</span>, count: <span class="nm">3</span>),  <span class="kw">true</span>),  <span class="cm">// min</span>
+        (String(repeating: <span class="st">"a"</span>, count: <span class="nm">20</span>), <span class="kw">true</span>),  <span class="cm">// max</span>
+        (String(repeating: <span class="st">"a"</span>, count: <span class="nm">21</span>), <span class="kw">false</span>), <span class="cm">// max+1</span>
+    ]
+    <span class="kw">for</span> c <span class="kw">in</span> cases {
+        <span class="kw">let</span> field = app.textFields[<span class="st">"username"</span>]
+        field.tap(); field.clearText(); field.typeText(c.input)
+        app.buttons[<span class="st">"submit"</span>].tap()
+        XCTAssertEqual(app.staticTexts[<span class="st">"username_error"</span>].exists, !c.valid)
+    }
+}</code></pre>
+
+  <p>
+    Keep the pyramid in mind: the validation <em>logic</em> boundary tests belong at the unit level
+    (fast, exhaustive tables), while UI-level frameworks verify the boundary <em>experience</em> —
+    that the error actually renders, that a 21st character is blocked or flagged, that the layout
+    survives the maximum-length string on the smallest screen. And because mobile flows lean heavily
+    on conditional UI state (permission granted?, online?, first launch?), view models and
+    controllers accumulate cyclomatic complexity fast — the same V(G) report that prioritizes your
+    Java services will point at the mobile classes whose environmental boundary matrix most needs
+    filling in.
+  </p>
+</section>
+
+<!-- ============ SECTION 5: ANGULAR ============ -->
+<section id="angular">
+  <div class="sec-eyebrow">§ Application · Front End</div>
+  <h2>BVA in Angular: validators are boundaries as code</h2>
+
+  <p>
+    Angular's reactive forms make boundaries unusually explicit: <code>Validators.min(18)</code>,
+    <code>Validators.max(65)</code>, <code>Validators.minLength(3)</code>,
+    <code>Validators.maxLength(20)</code> are boundary declarations sitting right in the component.
+    That's a gift to the tester — the boundary table can be exercised against the
+    <code>FormControl</code> directly, synchronously, with no DOM involved, because reactive form
+    state updates are synchronous and fully under test control.
+  </p>
+
+<pre><code><span class="cm">// registration-form.component.ts</span>
+profileForm = <span class="kw">this</span>.fb.group({
+  age:      [<span class="kw">null</span>, [Validators.required, Validators.min(<span class="nm">18</span>), Validators.max(<span class="nm">65</span>)]],
+  username: [<span class="st">''</span>,   [Validators.required, Validators.minLength(<span class="nm">3</span>), Validators.maxLength(<span class="nm">20</span>)]],
+});
+
+<span class="cm">// registration-form.component.spec.ts — Jasmine/Karma or Jest, same shape</span>
+describe(<span class="st">'age control boundaries (3-value BVA)'</span>, () =&gt; {
+  <span class="kw">let</span> age: AbstractControl;
+
+  beforeEach(() =&gt; { age = component.profileForm.get(<span class="st">'age'</span>)!; });
+
+  <span class="kw">const</span> table: [number, boolean, string][] = [
+    [<span class="nm">17</span>, <span class="kw">false</span>, <span class="st">'min-1'</span>],
+    [<span class="nm">18</span>, <span class="kw">true</span>,  <span class="st">'min'</span>],
+    [<span class="nm">19</span>, <span class="kw">true</span>,  <span class="st">'min+1'</span>],
+    [<span class="nm">40</span>, <span class="kw">true</span>,  <span class="st">'nominal'</span>],
+    [<span class="nm">64</span>, <span class="kw">true</span>,  <span class="st">'max-1'</span>],
+    [<span class="nm">65</span>, <span class="kw">true</span>,  <span class="st">'max'</span>],
+    [<span class="nm">66</span>, <span class="kw">false</span>, <span class="st">'max+1'</span>],
+  ];
+
+  table.forEach(([value, expectValid, role]) =&gt; {
+    it(<span class="st">`${role}: value ${value} → valid=${expectValid}`</span>, () =&gt; {
+      age.setValue(value);
+      expect(age.valid).toBe(expectValid);
+    });
+  });
+
+  it(<span class="st">'exposes the failing boundary in the error map'</span>, () =&gt; {
+    age.setValue(<span class="nm">17</span>);
+    expect(age.errors).toEqual({ min: { min: <span class="nm">18</span>, actual: <span class="nm">17</span> } });
+  });
+});</code></pre>
+
+  <h3>Custom validators: where your boundaries actually live</h3>
+  <p>
+    Built-in validators cover simple ranges; real applications have compound boundaries — "end date
+    after start date," "amount not exceeding remaining balance," "outside a blocked range." A custom
+    validator is just a function from <code>AbstractControl</code> to an error map or
+    <code>null</code>, which means it's a pure function you can BVA-test in isolation before it ever
+    touches a form. Every <code>if</code> inside that validator is a decision point: complex custom
+    validators are exactly where an Angular codebase's cyclomatic complexity concentrates (ESLint's
+    <code>complexity</code> rule and SonarQube both measure TypeScript), and therefore exactly where
+    the boundary tables should be richest.
+  </p>
+
+  <h3>Layered boundary checks in a front-end</h3>
+  <ul class="plain">
+    <li><strong>Unit level (the bulk):</strong> validator functions and <code>FormControl</code> state, as above — fast enough to afford full three-value tables everywhere.</li>
+    <li><strong>Component/DOM level:</strong> with Angular's <code>TestBed</code> and Harnesses, confirm the error <em>message</em> appears at min−1 and disappears at min — the user-facing half of the boundary. Remember HTML inputs return strings; the numeric coercion step is itself a boundary-rich seam (<code>"18"</code> vs <code>18</code> vs <code>""</code> vs <code>null</code>).</li>
+    <li><strong>E2E level (a thin skim):</strong> Cypress or Playwright, one representative boundary per critical form — proving client and server agree on where the edge is. A client that allows 65 while the API rejects it is a boundary-drift bug BVA at a single layer can't see.</li>
+    <li><strong>Never trust the client:</strong> Angular validation is UX, not security. The authoritative boundary check must exist server-side (your Java layer) — and both sides must be tested against the <em>same</em> boundary table, kept in one place if you can manage it.</li>
+  </ul>
+
+  <div class="callout">
+    <strong>Full-stack symmetry:</strong> the same seven-row table drives the JUnit
+    <code>@CsvSource</code> on the API and the <code>forEach</code> spec on the Angular form. Teams
+    that generate both from one shared fixture file eliminate boundary drift by construction.
+  </div>
+</section>
+
+<!-- ============ SECTION 6: AI TOOLS ============ -->
+<section id="ai">
+  <div class="sec-eyebrow">§ Force Multiplier</div>
+  <h2>AI assistants as boundary engines — and complexity risks</h2>
+
+  <p>
+    Tools like GitHub Copilot, Claude, and Claude Code change the economics of both halves of this
+    guide. Deriving a boundary table used to be careful manual work; an LLM can enumerate
+    partitions, edge values, type seams, and null paths from a requirement or a method body in
+    seconds. But the same tools also <em>generate</em> code — and the evidence says AI-written code
+    trends toward higher cyclomatic complexity, which means more boundaries to test, written faster
+    than anyone is testing them. Used deliberately, AI attacks both problems; used passively, it
+    amplifies the second one.
+  </p>
+
+  <h3>Where AI genuinely improves boundary analysis</h3>
+  <ul class="plain">
+    <li><strong>Boundary derivation from prose.</strong> Paste a requirement ("orders of $100 or more ship free; max 10 items; guests can't exceed $500") and ask for equivalence partitions plus a three-value BVA table. Frontier models do this reliably — comparative evaluations of unit-test generation found current-generation models (Claude 4-class, GPT-5-class, Gemini 2.5-class) identifying edge cases dependably, with the strongest producing two to three times as many boundary-relevant tests as older models — including the input-parameter boundaries weaker models skip.</li>
+    <li><strong>Table-to-test translation.</strong> An agreed boundary table becomes a JUnit <code>@CsvSource</code> block, an Angular <code>forEach</code> spec, and an Espresso case list in one prompt each — the full-stack symmetry from earlier sections, generated instead of hand-copied. AI is excellent at exactly this kind of faithful cross-framework translation.</li>
+    <li><strong>Type-layer completeness.</strong> The storage, reference, and representation boundaries from the type section — MIN/MAX seams, null-in-boxed-types, NaN and −0.0 — are precisely the systematic-but-tedious knowledge LLMs recall on demand. "List every type-level boundary value for this method's parameters" is a high-yield review prompt.</li>
+    <li><strong>Reading complex conditionals.</strong> For a method dense with predicates, AI can walk the control flow, name each decision point, and state which input values flip it — effectively drafting the basis-path analysis that connects V(G) to concrete test inputs.</li>
+  </ul>
+
+<pre><code><span class="cm">## A prompt shape that produces boundary tests, not happy-path filler</span>
+<span class="cm">## (works for Copilot Chat, Claude, Claude Code — adjust framework names)</span>
+
+Analyze the method below. Before writing any tests:
+
+<span class="nm">1.</span> List the equivalence partitions for every parameter.
+<span class="nm">2.</span> Build a 3-value BVA table (min−1, min, min+1, nominal, max−1, max, max+1)
+   for each spec boundary — plus the type-level values: MIN_VALUE, MAX_VALUE,
+   overflow seams, and null for every boxed/reference parameter.
+<span class="nm">3.</span> State the method's cyclomatic complexity and map each decision point
+   to the table rows that exercise both of its outcomes.
+
+Then generate JUnit 5 @ParameterizedTest cases from the table, one row per
+value, with the boundary role (min−1, max, null, …) in the display name.
+Do not test implementation details; tests must survive refactoring.
+Flag any boundary the spec leaves ambiguous instead of guessing.</code></pre>
+
+  <div class="callout good">
+    <strong>Why "table first, tests second" matters:</strong> asked simply to "write tests," LLMs
+    bias toward plausible-looking happy paths. Forcing the boundary table into the output first
+    makes the analysis reviewable <em>before</em> code exists — you approve the edges, then the
+    assistant merely transcribes them. The framework in this document is itself an effective
+    prompt: paste the seven-point pattern and the four boundary layers as context.
+  </div>
+
+  <h3>The complexity side: measure more, not less</h3>
+  <p>
+    The published evidence cuts both ways. On generation, Sonar's 2025 static-analysis study of
+    4,442 Java tasks across five LLMs found models producing functionally correct code flagged
+    heavily for high cyclomatic and cognitive complexity — a predictable artifact of
+    token-by-token generation optimizing local coherence over architecture. GitClear's multi-year
+    analysis of real repositories found an eight-fold rise in duplicated code blocks as AI
+    assistance spread, with copy-pasted lines overtaking refactored ones for the first time in
+    2024. In short: unreviewed AI code tends to <em>raise</em> V(G) and multiply the very
+    boundary surfaces that need testing.
+  </p>
+  <p>
+    On remediation, the same class of tools is a capable fix: an empirical study feeding
+    SonarQube-flagged functions to LLMs with structured prompts measured an average ~36% reduction
+    in reported issues, with high-complexity functions successfully decomposed into helper
+    methods. The practical synthesis is a loop in which the metric targets the AI and your boundary
+    suite referees it:
+  </p>
+
+  <figure>
+    <svg viewBox="0 0 900 300" role="img" aria-label="Workflow loop: measure complexity, AI derives boundary table, generate tests, mutation testing referees, AI refactors, re-measure">
+      <defs>
+        <marker id="arrow2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#2B5DA8"/>
+        </marker>
+      </defs>
+      <g font-family="ui-monospace, SF Mono, Consolas, monospace" font-size="12">
+        <!-- boxes: top row L->R, bottom row R->L -->
+        <rect x="30"  y="50" width="230" height="58" rx="9" fill="#E8EFF9" stroke="#2B5DA8" stroke-width="1.5"/>
+        <text x="145" y="74" text-anchor="middle" fill="#17232E" font-weight="bold">1 · MEASURE</text>
+        <text x="145" y="93" text-anchor="middle" fill="#5A6B7A" font-size="11">SonarQube/PMD: rank methods by V(G)</text>
+
+        <rect x="335" y="50" width="230" height="58" rx="9" fill="#FFFFFF" stroke="#2B5DA8" stroke-width="1.5"/>
+        <text x="450" y="74" text-anchor="middle" fill="#17232E" font-weight="bold">2 · DERIVE</text>
+        <text x="450" y="93" text-anchor="middle" fill="#5A6B7A" font-size="11">AI maps predicates → boundary table</text>
+
+        <rect x="640" y="50" width="230" height="58" rx="9" fill="#E5F3EE" stroke="#12805C" stroke-width="1.5"/>
+        <text x="755" y="74" text-anchor="middle" fill="#12805C" font-weight="bold">3 · GENERATE</text>
+        <text x="755" y="93" text-anchor="middle" fill="#5A6B7A" font-size="11">AI writes parameterized boundary tests</text>
+
+        <rect x="640" y="185" width="230" height="58" rx="9" fill="#F9EAE7" stroke="#B4372A" stroke-width="1.5"/>
+        <text x="755" y="209" text-anchor="middle" fill="#B4372A" font-weight="bold">4 · REFEREE</text>
+        <text x="755" y="228" text-anchor="middle" fill="#5A6B7A" font-size="11">PIT boundary mutants + human review</text>
+
+        <rect x="335" y="185" width="230" height="58" rx="9" fill="#FFFFFF" stroke="#2B5DA8" stroke-width="1.5"/>
+        <text x="450" y="209" text-anchor="middle" fill="#17232E" font-weight="bold">5 · REFACTOR</text>
+        <text x="450" y="228" text-anchor="middle" fill="#5A6B7A" font-size="11">AI lowers V(G); boundary suite = oracle</text>
+
+        <rect x="30"  y="185" width="230" height="58" rx="9" fill="#E8EFF9" stroke="#2B5DA8" stroke-width="1.5"/>
+        <text x="145" y="209" text-anchor="middle" fill="#17232E" font-weight="bold">6 · RE-MEASURE</text>
+        <text x="145" y="228" text-anchor="middle" fill="#5A6B7A" font-size="11">Complexity drops · gate the next PR</text>
+      </g>
+      <g stroke="#2B5DA8" stroke-width="1.8" fill="none" marker-end="url(#arrow2)">
+        <line x1="260" y1="79"  x2="331" y2="79"/>
+        <line x1="565" y1="79"  x2="636" y2="79"/>
+        <line x1="755" y1="108" x2="755" y2="181"/>
+        <line x1="640" y1="214" x2="569" y2="214"/>
+        <line x1="335" y1="214" x2="264" y2="214"/>
+        <path d="M 145 185 L 145 112" />
+      </g>
+    </svg>
+    <figcaption>
+      The AI-assisted loop. The complexity metric picks the targets (1), the assistant does the
+      tedious derivation and generation (2–3), mutation testing and a human reviewer verify the
+      boundary tests actually bite (4), and only then does AI refactor — with the freshly verified
+      boundary suite serving as the behavioral safety net that makes the refactor safe (5–6).
+    </figcaption>
+  </figure>
+
+  <h3>Guardrails: where AI-driven testing goes wrong</h3>
+  <ul class="plain">
+    <li><strong>Hallucinated assertions.</strong> Benchmark evaluations consistently find generated tests asserting the wrong exception type or misreading error semantics — plausible tests that encode a false spec. Every generated boundary expectation needs the same review a junior engineer's PR would get; a wrong assertion is worse than a missing one, because it green-lights the bug.</li>
+    <li><strong>Coverage theater.</strong> AI can flood a diff with tests that raise line coverage while never touching a seam. Judge generated suites by mutation score (does PIT's <code>CONDITIONALS_BOUNDARY</code> mutator die?) rather than coverage percent — mutation testing is the mechanical detector of decorative BVA.</li>
+    <li><strong>Complexity creep in the code itself.</strong> Because AI output skews complex and generation is cheap, tighten the gates: Sonar's own guidance for AI-heavy codebases is stricter quality profiles — lower complexity thresholds, high new-code coverage, near-zero duplication. Every AI-added predicate is a boundary someone must now test; make the gate charge for it.</li>
+    <li><strong>Ambiguity laundering.</strong> When a spec doesn't say whether 65 is inclusive, an LLM will pick one and write confident tests for it. Instruct assistants to surface ambiguous boundaries as questions (as in the prompt above) — the decision belongs to a human, and the ambiguity itself is the most valuable finding.</li>
+    <li><strong>Skill atrophy is optional.</strong> Teams that treat the generated table as a review artifact — argued over in the PR like any design — keep boundary thinking sharp while shedding the transcription work. Teams that merge whatever appears lose the analysis skill the tool was supposed to amplify.</li>
+  </ul>
+
+  <div class="callout">
+    <strong>Bottom line:</strong> AI moves BVA from "technique you remember to apply" to "artifact
+    you review by default" — and simultaneously raises the stakes on complexity measurement, because
+    it writes branchy code faster than humans write boundary tests. The teams winning with these
+    tools run the loop above; the metric, the table, and the mutant kill-rate are the three numbers
+    that keep the assistant honest.
+  </div>
+</section>
+
+<!-- ============ SECTION 7: RESOURCES ============ -->
+<section id="resources">
+  <div class="sec-eyebrow">§ Going Deeper</div>
+  <h2>Resources</h2>
+
+  <div class="res-group">
+    <h3>Boundary value analysis &amp; test design</h3>
+    <ul class="res-list">
+      <li><a href="https://www.geeksforgeeks.org/software-testing/software-testing-boundary-value-analysis/">GeeksforGeeks — Boundary Value Analysis</a><span class="res-desc">Concise reference with worked valid/invalid range examples.</span></li>
+      <li><a href="https://katalon.com/resources-center/blog/boundary-value-analysis-guide">Katalon — Boundary Value Analysis: A Complete Guide</a><span class="res-desc">BVA built up from equivalence partitioning, with practitioner guidance.</span></li>
+      <li><a href="https://www.leadwithskills.com/blogs/boundary-value-analysis-bva-complete-tutorial-examples">Lead With Skills — BVA Complete Tutorial</a><span class="res-desc">Good treatment of 2-value vs 3-value BVA and non-numeric inputs.</span></li>
+      <li><a href="https://www.ranorex.com/blog/boundary-value-analysis/">Ranorex — How to Use Boundary Value Analysis</a><span class="res-desc">Tool-vendor perspective on applying BVA across desktop, web, and mobile.</span></li>
+      <li><a href="https://en.wikipedia.org/wiki/Boundary-value_analysis">Wikipedia — Boundary-value analysis</a><span class="res-desc">Formal definition and history.</span></li>
+      <li><a href="https://www.istqb.org/certifications/certified-tester-foundation-level">ISTQB — Certified Tester Foundation Level syllabus</a><span class="res-desc">The canonical treatment of EP, 2-value and 3-value BVA (Chapter 4, test design techniques).</span></li>
+    </ul>
+  </div>
+
+  <div class="res-group">
+    <h3>Cyclomatic complexity</h3>
+    <ul class="res-list">
+      <li><a href="https://www.sonarsource.com/resources/library/cyclomatic-complexity/">Sonar — Cyclomatic Complexity Guide</a><span class="res-desc">How to calculate it, thresholds, and its correlation with defect risk.</span></li>
+      <li><a href="https://www.geeksforgeeks.org/dsa/cyclomatic-complexity/">GeeksforGeeks — Cyclomatic Complexity</a><span class="res-desc">Control-flow graph construction and the V(G) = E − N + 2 formula.</span></li>
+      <li><a href="https://www.guru99.com/cyclomatic-complexity.html">Guru99 — Cyclomatic Complexity with Examples</a><span class="res-desc">Basis path testing walkthrough: complexity number → test case count.</span></li>
+      <li><a href="https://en.wikipedia.org/wiki/Cyclomatic_complexity">Wikipedia — Cyclomatic complexity</a><span class="res-desc">McCabe's original formulation and subsequent research.</span></li>
+    </ul>
+  </div>
+
+  <div class="res-group">
+    <h3>Java</h3>
+    <ul class="res-list">
+      <li><a href="https://junit.org/junit5/docs/current/user-guide/#writing-tests-parameterized-tests">JUnit 5 User Guide — Parameterized Tests</a><span class="res-desc">Official reference for @ParameterizedTest, @CsvSource, @MethodSource, and friends.</span></li>
+      <li><a href="https://www.baeldung.com/parameterized-tests-junit-5">Baeldung — Guide to JUnit 5 Parameterized Tests</a><span class="res-desc">Thorough tutorial with argument-source patterns, including @NullSource.</span></li>
+      <li><a href="https://docs.oracle.com/javase/specs/jls/se21/html/jls-5.html#jls-5.1.8">Java Language Specification — §5.1.8 Unboxing Conversion</a><span class="res-desc">The formal rules for when boxed values unbox — i.e., where the null boundary can throw.</span></li>
+      <li><a href="https://pitest.org/">PIT Mutation Testing</a><span class="res-desc">Includes the conditionals-boundary mutator — automated verification that your boundary tests bite.</span></li>
+      <li><a href="https://www.jacoco.org/jacoco/">JaCoCo</a><span class="res-desc">Branch coverage for confirming both sides of every predicate execute.</span></li>
+      <li><a href="https://pmd.github.io/">PMD</a><span class="res-desc">Static analysis with a per-method CyclomaticComplexity rule.</span></li>
+    </ul>
+  </div>
+
+  <div class="res-group">
+    <h3>Mobile</h3>
+    <ul class="res-list">
+      <li><a href="https://developer.android.com/training/testing/espresso">Android Developers — Espresso</a><span class="res-desc">Official docs for Android's native UI testing framework.</span></li>
+      <li><a href="https://developer.apple.com/documentation/xctest">Apple Developer — XCTest</a><span class="res-desc">Official reference covering unit and XCUITest UI testing on iOS.</span></li>
+      <li><a href="https://www.browserstack.com/guide/espresso-android-testing">BrowserStack — Espresso Android Testing Tutorial</a><span class="res-desc">Practical Espresso walkthrough including edge-case handling.</span></li>
+      <li><a href="https://maestro.dev/insights/validate-edge-cases-ui-testing">Maestro — How to Validate Edge Cases in UI Testing</a><span class="res-desc">Mobile-specific edge cases: visual, network, and time boundaries.</span></li>
+      <li><a href="https://appium.io/">Appium</a><span class="res-desc">Cross-platform automation when one suite must span Android and iOS.</span></li>
+    </ul>
+  </div>
+
+  <div class="res-group">
+    <h3>AI-assisted testing &amp; code quality</h3>
+    <ul class="res-list">
+      <li><a href="https://arxiv.org/abs/2508.14727">Sonar Research — Assessing the Quality and Security of AI-Generated Code (arXiv)</a><span class="res-desc">Static analysis of 4,442 LLM-generated Java tasks: complexity and defect profiles per model.</span></li>
+      <li><a href="https://www.sonarsource.com/blog/the-inevitable-rise-of-poor-code-quality-in-ai-accelerated-codebases/">Sonar — Poor Code Quality in AI-Accelerated Codebases</a><span class="res-desc">Complexity and duplication trends (including the GitClear findings) and mitigation strategy.</span></li>
+      <li><a href="https://www.sonarsource.com/blog/how-to-optimize-sonarqube-for-reviewing-ai-generated-code">Sonar — Optimizing SonarQube for AI-Generated Code</a><span class="res-desc">Hardened quality gates and lower complexity thresholds for AI-heavy repos.</span></li>
+      <li><a href="https://t2informatik.de/en/blog/generating-unit-tests-with-ai/">t2informatik — Generating Unit Tests with AI</a><span class="res-desc">Comparative evaluation of edge-case detection and hallucinated assertions across models.</span></li>
+      <li><a href="https://link.springer.com/article/10.1007/s10664-026-10858-8">Empirical Software Engineering — LLMs for Code Quality Issues</a><span class="res-desc">Peer-reviewed study of LLM refactoring against SonarQube findings, including complexity reduction.</span></li>
+      <li><a href="https://docs.github.com/en/copilot">GitHub Copilot documentation</a><span class="res-desc">Official docs, including Copilot Chat workflows for test generation.</span></li>
+      <li><a href="https://www.claude.com/product/claude-code">Claude Code</a><span class="res-desc">Agentic coding tool suited to the derive-generate-refactor loop across whole repositories.</span></li>
+      <li><a href="https://www.diffblue.com/">Diffblue Cover</a><span class="res-desc">Non-LLM AI unit test generation for Java via bytecode analysis — a deterministic complement.</span></li>
+    </ul>
+  </div>
+
+  <div class="res-group">
+    <h3>Angular</h3>
+    <ul class="res-list">
+      <li><a href="https://angular.dev/api/forms/Validators">Angular — Validators API</a><span class="res-desc">Official reference for min, max, minLength, maxLength and their error maps.</span></li>
+      <li><a href="https://angular.dev/guide/forms/reactive-forms">Angular — Reactive Forms Guide</a><span class="res-desc">Why reactive forms are synchronous and easier to unit test.</span></li>
+      <li><a href="https://angular.dev/guide/testing">Angular — Testing Guide</a><span class="res-desc">TestBed, component harnesses, and testing strategy.</span></li>
+      <li><a href="https://www.tektutorialshub.com/angular/angular-reactive-forms-validation/">TekTutorialsHub — Reactive Forms Validation</a><span class="res-desc">Built-in validator usage patterns with full examples.</span></li>
+    </ul>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  BOUNDARY VALUE ANALYSIS · SINGLE-FILE REFERENCE · TEST THE EDGES FIRST
+</footer>
+
+<script>
+(function(){
+  "use strict";
+  var minInput = document.getElementById("bva-min");
+  var maxInput = document.getElementById("bva-max");
+  var errEl    = document.getElementById("bva-err");
+  var svg      = document.getElementById("numline");
+  var tableWrap= document.getElementById("bva-table-wrap");
+
+  var C = { valid:"#12805C", invalid:"#B4372A", boundary:"#2B5DA8",
+            validBg:"#E5F3EE", invalidBg:"#F9EAE7", ink:"#17232E", muted:"#5A6B7A" };
+
+  function build(){
+    var min = parseInt(minInput.value, 10);
+    var max = parseInt(maxInput.value, 10);
+
+    if (isNaN(min) || isNaN(max)) { errEl.textContent = "Enter integer values for both boundaries."; return; }
+    if (max - min < 2) { errEl.textContent = "Max must be at least min + 2 so a nominal interior value exists."; return; }
+    errEl.textContent = "";
+
+    var nominal = Math.round((min + max) / 2);
+    // [value, partition, role]
+    var points = [
+      [min-1, "invalid",  "min−1"],
+      [min,   "boundary", "min"],
+      [min+1, "valid",    "min+1"],
+      [nominal,"valid",   "nominal"],
+      [max-1, "valid",    "max−1"],
+      [max,   "boundary", "max"],
+      [max+1, "invalid",  "max+1"]
+    ];
+    // De-duplicate when the range is tiny (e.g., min+1 === nominal)
+    var seen = {}, pts = [];
+    for (var i=0;i<points.length;i++){
+      var v = points[i][0];
+      if (seen[v]) { seen[v][2] += " / " + points[i][2]; }
+      else { seen[v] = points[i].slice(); pts.push(seen[v]); }
+    }
+
+    var W=900, H=150, padL=60, padR=60, y=88;
+    var lo=min-1, hi=max+1;
+    var x = function(v){ return padL + (v - lo) * (W - padL - padR) / (hi - lo); };
+
+    var s = "";
+    // partition bands
+    s += '<rect x="'+(padL-40)+'" y="'+(y-14)+'" width="'+(x(min)-(padL-40))+'" height="28" fill="'+C.invalidBg+'" rx="4"/>';
+    s += '<rect x="'+x(min)+'" y="'+(y-14)+'" width="'+(x(max)-x(min))+'" height="28" fill="'+C.validBg+'" rx="0"/>';
+    s += '<rect x="'+x(max)+'" y="'+(y-14)+'" width="'+((W-padR+40)-x(max))+'" height="28" fill="'+C.invalidBg+'" rx="4"/>';
+    // axis
+    s += '<line x1="'+(padL-40)+'" y1="'+y+'" x2="'+(W-padR+40)+'" y2="'+y+'" stroke="'+C.muted+'" stroke-width="1.5"/>';
+    // partition labels
+    s += '<text x="'+((padL-40+x(min))/2)+'" y="'+(y-26)+'" text-anchor="middle" font-family="ui-monospace,Consolas,monospace" font-size="11" fill="'+C.invalid+'">INVALID</text>';
+    s += '<text x="'+((x(min)+x(max))/2)+'" y="'+(y-26)+'" text-anchor="middle" font-family="ui-monospace,Consolas,monospace" font-size="11" fill="'+C.valid+'">VALID ['+min+' … '+max+']</text>';
+    s += '<text x="'+((x(max)+W-padR+40)/2)+'" y="'+(y-26)+'" text-anchor="middle" font-family="ui-monospace,Consolas,monospace" font-size="11" fill="'+C.invalid+'">INVALID</text>';
+
+    for (var j=0;j<pts.length;j++){
+      var v=pts[j][0], part=pts[j][1], role=pts[j][2];
+      var col = part==="boundary" ? C.boundary : (part==="valid" ? C.valid : C.invalid);
+      var r   = part==="boundary" ? 9 : 6.5;
+      var cx  = x(v);
+      if (part==="boundary"){
+        s += '<line x1="'+cx+'" y1="'+(y-20)+'" x2="'+cx+'" y2="'+(y+20)+'" stroke="'+C.boundary+'" stroke-width="2" stroke-dasharray="3 3"/>';
+      }
+      s += '<circle cx="'+cx+'" cy="'+y+'" r="'+r+'" fill="'+col+'" stroke="#FFFFFF" stroke-width="2"/>';
+      s += '<text x="'+cx+'" y="'+(y+38)+'" text-anchor="middle" font-family="ui-monospace,Consolas,monospace" font-size="13" font-weight="bold" fill="'+C.ink+'">'+v+'</text>';
+      s += '<text x="'+cx+'" y="'+(y+55)+'" text-anchor="middle" font-family="ui-monospace,Consolas,monospace" font-size="10" fill="'+C.muted+'">'+role+'</text>';
+    }
+    svg.innerHTML = s;
+
+    // test-case table
+    var t = '<table><thead><tr><th>#</th><th>Input</th><th>Role</th><th>Partition</th><th>Expected</th></tr></thead><tbody>';
+    for (var k=0;k<pts.length;k++){
+      var p=pts[k];
+      var cls = p[1]==="boundary" ? "boundary" : p[1];
+      var expected = (p[0] >= min && p[0] <= max) ? "Accept" : "Reject";
+      t += '<tr><td class="mono">TC-'+(k+1)+'</td><td class="mono">'+p[0]+'</td><td class="mono">'+p[2]+'</td>'
+         + '<td><span class="tag '+cls+'">'+p[1]+'</span></td><td>'+expected+'</td></tr>';
+    }
+    t += '</tbody></table>';
+    tableWrap.innerHTML = t;
+  }
+
+  minInput.addEventListener("input", build);
+  maxInput.addEventListener("input", build);
+  build();
+})();
+
+/* ============ Overflow Wheel ============ */
+(function(){
+  "use strict";
+  var typeSel = document.getElementById("ow-type");
+  var aInput  = document.getElementById("ow-a");
+  var bInput  = document.getElementById("ow-b");
+  var errEl   = document.getElementById("ow-err");
+  var svg     = document.getElementById("wheel-svg");
+  var readout = document.getElementById("ow-readout");
+  if (!typeSel) return;
+
+  var C = { valid:"#12805C", invalid:"#B4372A", boundary:"#2B5DA8",
+            ink:"#17232E", muted:"#5A6B7A", rule:"#D8DEE5" };
+  var NAMES = {8:"byte",16:"short",32:"int",64:"long"};
+
+  function limits(bits){
+    var b = BigInt(bits);
+    return { min: -(1n << (b - 1n)), max: (1n << (b - 1n)) - 1n, span: 1n << b };
+  }
+  function fmt(v){
+    var s = v.toString(), neg = s[0] === "-";
+    if (neg) s = s.slice(1);
+    return (neg ? "\u2212" : "") + s.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  }
+  function parseBig(text){
+    var t = text.trim().replace(/[,_\s]/g, "").replace(/\u2212/g, "-");
+    if (!/^-?\d+$/.test(t)) return null;
+    return BigInt(t);
+  }
+  function pt(cx, cy, deg, r){
+    var t = (deg - 90) * Math.PI / 180;
+    return [cx + r * Math.cos(t), cy + r * Math.sin(t)];
+  }
+
+  function build(){
+    var bits = parseInt(typeSel.value, 10);
+    var L = limits(bits);
+    var a = parseBig(aInput.value), b = parseBig(bInput.value);
+
+    if (a === null || b === null){ errEl.textContent = "Enter integer values for a and b."; return; }
+    if (a < L.min || a > L.max || b < L.min || b > L.max){
+      errEl.textContent = "Both operands must fit in " + NAMES[bits] +
+        " [" + fmt(L.min) + " \u2026 " + fmt(L.max) + "].";
+      return;
+    }
+    errEl.textContent = "";
+
+    var exact   = a + b;
+    var stored  = BigInt.asIntN(bits, exact);
+    var wrapped = exact !== stored;
+
+    var spanN  = Math.pow(2, bits);
+    var degOf  = function(v){ return Number(v) / spanN * 360; };
+    var cx = 170, cy = 170, R = 128;
+
+    var s = "";
+    // ring
+    s += '<circle cx="'+cx+'" cy="'+cy+'" r="'+R+'" fill="none" stroke="'+C.rule+'" stroke-width="10"/>';
+    // the seam at 180deg (bottom): MAX meets MIN
+    var seamO = pt(cx, cy, 180, R + 14), seamI = pt(cx, cy, 180, R - 14);
+    s += '<line x1="'+seamI[0]+'" y1="'+seamI[1]+'" x2="'+seamO[0]+'" y2="'+seamO[1]+'" stroke="'+C.invalid+'" stroke-width="3.5"/>';
+    s += '<text x="'+cx+'" y="'+(cy + R + 32)+'" text-anchor="middle" font-family="ui-monospace,Consolas,monospace" font-size="10.5" font-weight="bold" fill="'+C.invalid+'">OVERFLOW SEAM</text>';
+    s += '<text x="'+(cx - 34)+'" y="'+(cy + R - 4)+'" text-anchor="end" font-family="ui-monospace,Consolas,monospace" font-size="10" fill="'+C.invalid+'">MIN</text>';
+    s += '<text x="'+(cx + 34)+'" y="'+(cy + R - 4)+'" font-family="ui-monospace,Consolas,monospace" font-size="10" fill="'+C.invalid+'">MAX</text>';
+    // zero tick at top
+    var z1 = pt(cx, cy, 0, R - 8), z2 = pt(cx, cy, 0, R + 8);
+    s += '<line x1="'+z1[0]+'" y1="'+z1[1]+'" x2="'+z2[0]+'" y2="'+z2[1]+'" stroke="'+C.muted+'" stroke-width="2"/>';
+    s += '<text x="'+cx+'" y="'+(cy - R - 14)+'" text-anchor="middle" font-family="ui-monospace,Consolas,monospace" font-size="11" fill="'+C.muted+'">0</text>';
+
+    // travel arc from a, sweeping by b (clockwise positive)
+    var degA = degOf(a), sweep = degOf(b);
+    if (Math.abs(sweep) > 0.0001){
+      var p1 = pt(cx, cy, degA, R), p2 = pt(cx, cy, degA + sweep, R);
+      var large = Math.abs(sweep) > 180 ? 1 : 0;
+      var dir   = sweep > 0 ? 1 : 0;
+      var arcCol = wrapped ? C.invalid : C.valid;
+      s += '<path d="M '+p1[0]+' '+p1[1]+' A '+R+' '+R+' 0 '+large+' '+dir+' '+p2[0]+' '+p2[1]+'" fill="none" stroke="'+arcCol+'" stroke-width="6" stroke-linecap="round" opacity="0.85"/>';
+    }
+    // marker: a
+    var pa = pt(cx, cy, degA, R);
+    s += '<circle cx="'+pa[0]+'" cy="'+pa[1]+'" r="8" fill="'+C.boundary+'" stroke="#FFFFFF" stroke-width="2.5"/>';
+    var la = pt(cx, cy, degA, R - 26);
+    s += '<text x="'+la[0]+'" y="'+(la[1]+4)+'" text-anchor="middle" font-family="ui-monospace,Consolas,monospace" font-size="11" font-weight="bold" fill="'+C.boundary+'">a</text>';
+    // marker: result
+    var degR = degOf(stored), pr = pt(cx, cy, degR, R);
+    var resCol = wrapped ? C.invalid : C.valid;
+    s += '<circle cx="'+pr[0]+'" cy="'+pr[1]+'" r="9" fill="'+resCol+'" stroke="#FFFFFF" stroke-width="2.5"/>';
+    var lr = pt(cx, cy, degR, R - 26);
+    s += '<text x="'+lr[0]+'" y="'+(lr[1]+4)+'" text-anchor="middle" font-family="ui-monospace,Consolas,monospace" font-size="11" font-weight="bold" fill="'+resCol+'">a+b</text>';
+    // center summary
+    s += '<text x="'+cx+'" y="'+(cy - 6)+'" text-anchor="middle" font-family="ui-monospace,Consolas,monospace" font-size="13" font-weight="bold" fill="'+C.ink+'">'+NAMES[bits]+'</text>';
+    s += '<text x="'+cx+'" y="'+(cy + 14)+'" text-anchor="middle" font-family="ui-monospace,Consolas,monospace" font-size="11" fill="'+(wrapped ? C.invalid : C.valid)+'">'+(wrapped ? "wrapped" : "in range")+'</text>';
+    svg.innerHTML = s;
+
+    readout.innerHTML =
+      '<span class="lbl">EXPRESSION</span><br>' + fmt(a) + ' + ' + fmt(b) + '<br>' +
+      '<span class="lbl">MATHEMATICAL RESULT</span><br>' + fmt(exact) + '<br>' +
+      '<span class="lbl">STORED AS ' + NAMES[bits].toUpperCase() + '</span><br>' +
+      '<strong>' + fmt(stored) + '</strong> ' +
+      (wrapped
+        ? '<span class="badge wrap">OVERFLOW \u00B7 WRAPPED ' + fmt(stored - exact >= 0n ? stored - exact : exact - stored) + ' AWAY</span>'
+        : '<span class="badge ok">NO OVERFLOW</span>');
+  }
+
+  var presets = {
+    maxplus1:  function(L){ return [L.max, 1n]; },
+    minminus1: function(L){ return [L.min, -1n]; },
+    maxmax:    function(L){ return [L.max, L.max]; },
+    carry:     function(){ return [-1n, 1n]; },
+    safe:      function(L){ return [L.max / 4n, L.max / 4n]; }
+  };
+  Array.prototype.forEach.call(document.querySelectorAll(".presets button"), function(btn){
+    btn.addEventListener("click", function(){
+      var L = limits(parseInt(typeSel.value, 10));
+      var vals = presets[btn.getAttribute("data-preset")](L);
+      aInput.value = vals[0].toString();
+      bInput.value = vals[1].toString();
+      build();
+    });
+  });
+
+  typeSel.addEventListener("change", build);
+  aInput.addEventListener("input", build);
+  bInput.addEventListener("input", build);
+  build();
+})();
+
+/* ============ Test Matrix (combinatorial explosion) ============ */
+(function(){
+  "use strict";
+  var boxedSel = document.getElementById("mx-boxed");
+  var nSel     = document.getElementById("mx-n");
+  var countsEl = document.getElementById("mx-counts");
+  var noteEl   = document.getElementById("mx-grid-note");
+  var svg      = document.getElementById("mx-grid");
+  if (!boxedSel) return;
+
+  var INT_MIN = -2147483648n, INT_MAX = 2147483647n;
+  var VALS = [
+    {v: INT_MIN,       l: "MIN"},
+    {v: INT_MIN + 1n,  l: "MIN+1"},
+    {v: -1n,           l: "\u22121"},
+    {v: 0n,            l: "0"},
+    {v: 1n,            l: "+1"},
+    {v: INT_MAX - 1n,  l: "MAX\u22121"},
+    {v: INT_MAX,       l: "MAX"}
+  ];
+  var COL = { ok:"#12805C", okBg:"#E5F3EE", ovf:"#C77D0A", ovfBg:"#F8ECD4",
+              npe:"#B4372A", npeBg:"#F9EAE7", ink:"#17232E", muted:"#5A6B7A", rule:"#D8DEE5" };
+
+  function fmtInt(x){ return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
+
+  function classify(vals){        // vals: array of BigInt-or-null
+    for (var i=0;i<vals.length;i++) if (vals[i] === null) return "npe";
+    var sum = 0n;
+    for (var j=0;j<vals.length;j++) sum += vals[j];
+    return (sum < INT_MIN || sum > INT_MAX) ? "ovf" : "ok";
+  }
+
+  function build(){
+    var boxed = boxedSel.value === "1";
+    var n = parseInt(nSel.value, 10);
+    var set = VALS.map(function(o){ return o.v; });
+    if (boxed) set.push(null);
+    var size = set.length;
+
+    // Full enumeration (max 8^4 = 4096 — cheap)
+    var total = Math.pow(size, n), counts = {ok:0, ovf:0, npe:0};
+    for (var idx=0; idx<total; idx++){
+      var rem = idx, combo = [];
+      for (var d=0; d<n; d++){ combo.push(set[rem % size]); rem = Math.floor(rem / size); }
+      counts[classify(combo)]++;
+    }
+    var valuePaths = counts.ok + counts.ovf;
+    var npePct = total ? Math.round(counts.npe / total * 100) : 0;
+
+    countsEl.innerHTML =
+      '<span class="lbl">FULL CROSS PRODUCT \u00B7 ' + size + (boxed ? " values (7 + null)" : " values") +
+      ' ^ ' + n + ' operands</span><br>' +
+      '<strong>' + fmtInt(total) + '</strong> combinations \u2014 ' +
+      fmtInt(valuePaths) + ' value paths (' + fmtInt(counts.ovf) + ' overflow) ' +
+      (boxed
+        ? '\u00B7 <span style="color:#B4372A;font-weight:700">' + fmtInt(counts.npe) + ' NPE paths (' + npePct + '%)</span>'
+        : '\u00B7 0 NPE paths') +
+      '<br><span class="lbl">PAIRWISE ALTERNATIVE \u2265 ' + (size*size) +
+      ' TESTS COVERS EVERY 2-OPERAND INTERACTION AT ANY N</span>';
+
+    noteEl.textContent = n === 2
+      ? "GRID: EVERY (a, b) COMBINATION, COLORED BY OUTCOME"
+      : "GRID: THE (a, b) SLICE OF THE " + n + "-OPERAND PRODUCT \u2014 TOTALS ABOVE COVER ALL " + n;
+
+    // Grid for the first two operands
+    var labels = VALS.map(function(o){ return o.l; });
+    if (boxed) labels.push("null");
+    var pad = 86, cs = Math.floor((560 - pad - 12) / size);
+    var s = "";
+    for (var r=0; r<size; r++){
+      for (var c=0; c<size; c++){
+        var cls = classify([set[c], set[r]]);
+        var bg = cls==="npe" ? COL.npeBg : (cls==="ovf" ? COL.ovfBg : COL.okBg);
+        var bd = cls==="npe" ? COL.npe   : (cls==="ovf" ? COL.ovf   : COL.ok);
+        var x = pad + c*cs, y = pad + r*cs;
+        s += '<rect x="'+(x+2)+'" y="'+(y+2)+'" width="'+(cs-4)+'" height="'+(cs-4)+'" rx="6" fill="'+bg+'" stroke="'+bd+'" stroke-width="1.4"/>';
+        var mark = cls==="npe" ? "\u2715" : (cls==="ovf" ? "\u21BB" : "\u2713");
+        s += '<text x="'+(x+cs/2)+'" y="'+(y+cs/2+5)+'" text-anchor="middle" font-family="ui-monospace,Consolas,monospace" font-size="'+(cs>=52?15:13)+'" fill="'+bd+'">'+mark+'</text>';
+      }
+    }
+    for (var i=0;i<size;i++){
+      var isNull = labels[i]==="null";
+      var lc = isNull ? COL.npe : COL.ink;
+      s += '<text x="'+(pad + i*cs + cs/2)+'" y="'+(pad - 12)+'" text-anchor="middle" font-family="ui-monospace,Consolas,monospace" font-size="11" font-weight="'+(isNull?'bold':'normal')+'" fill="'+lc+'">'+labels[i]+'</text>';
+      s += '<text x="'+(pad - 10)+'" y="'+(pad + i*cs + cs/2 + 4)+'" text-anchor="end" font-family="ui-monospace,Consolas,monospace" font-size="11" font-weight="'+(isNull?'bold':'normal')+'" fill="'+lc+'">'+labels[i]+'</text>';
+    }
+    s += '<text x="'+(pad + size*cs/2)+'" y="'+(pad - 34)+'" text-anchor="middle" font-family="ui-monospace,Consolas,monospace" font-size="11" fill="'+COL.muted+'">a \u2192</text>';
+    s += '<text x="22" y="'+(pad + size*cs/2)+'" text-anchor="middle" font-family="ui-monospace,Consolas,monospace" font-size="11" fill="'+COL.muted+'" transform="rotate(-90 22 '+(pad + size*cs/2)+')">b \u2192</text>';
+    svg.setAttribute("viewBox", "0 0 560 " + (pad + size*cs + 14));
+    svg.innerHTML = s;
+  }
+
+  boxedSel.addEventListener("change", build);
+  nSel.addEventListener("change", build);
+  build();
+})();
+</script>
+</body>
+</html>

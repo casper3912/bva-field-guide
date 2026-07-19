@@ -1,0 +1,27 @@
+{
+  "name": "bva-field-guide",
+  "version": "1.0.0",
+  "description": "A self-contained, single-file field guide to boundary value analysis, cyclomatic complexity, and their application in Java, mobile, and Angular development — with interactive visualizations.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "test:watch": "node --test --watch",
+    "serve": "npx serve ."
+  },
+  "keywords": [
+    "boundary-value-analysis",
+    "software-testing",
+    "cyclomatic-complexity",
+    "junit",
+    "angular",
+    "mobile-testing",
+    "education"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "jsdom": "^24.1.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
